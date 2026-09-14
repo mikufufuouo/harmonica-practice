@@ -12,8 +12,13 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "fake-indexeddb": "^6.2.5",
+    "prettier": "^3.9.6",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vite": "^6.0.5"
+  },
+  "dependencies": {
+    "tesseract.js": "^7.0.0"
   }
 }

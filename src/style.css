@@ -10,3 +10,10 @@
 .score-sequence li { padding:4px 0; line-height:1.45; }
 .score-import details { margin-top:12px; }.score-import details > summary { font-size:.9rem; }
 @media (max-width:680px) { .score-options { align-items:stretch; flex-direction:column; }.score-options label { justify-content:space-between; }.score-options select,.score-options input { min-width:0; } }
+.score-image { display:block; max-width:100%; max-height:28rem; margin:12px 0; object-fit:contain; border:1px solid #29433d; border-radius:8px; }
+.score-image[hidden] { display:none; }
+.import-lines { display:grid; gap:10px; margin:12px 0; }
+.import-line { display:grid; grid-template-columns:minmax(120px, .8fr) minmax(180px, 2fr) auto auto; gap:8px; align-items:start; padding:10px; border:1px solid #29433d; border-radius:8px; }
+.import-line small { grid-column:1 / -1; color:#afc6bf; overflow-wrap:anywhere; }
+.library article { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:8px 0; }
+@media (max-width:680px) { .import-line { grid-template-columns:1fr 1fr; }.import-line textarea { grid-column:1 / -1; width:100%; } }
