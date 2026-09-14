@@ -1,0 +1,13 @@
+{
+  "name": "口琴单音采样实验台",
+  "short_name": "口琴实验台",
+  "display": "standalone",
+  "start_url": "./",
+  "scope": "./",
+  "theme_color": "#10221f",
+  "background_color": "#0d1917",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
