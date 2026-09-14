@@ -1,5 +1,7 @@
 # 本地音频与识别架构
 
+本文包含后续设计，不代表全部已实现；当前实现与验证范围见 [STATE.md](STATE.md)。
+
 ## 可行性判断
 
 界面、BD 谱、练习记录和 PWA 都属于可分阶段实现的工程工作。真正需要实验的是：特定琴/麦克风条件下的弱邻孔检出率与单孔误报率。现有研究支持用谐波约束及音色模板分解复音，但不直接证明口琴串孔可以达到我们的指标。[Cheng 等，实时音乐分析与视奏评估](https://cseweb.ucsd.edu/~dhu/docs/icassp08_music.pdf)、[Vincent 等，谐波与非谐波 NMF](https://perso.telecom-paristech.fr/rbadeau/assets/icassp-08-bis.pdf)。以下算法是待验证的工程方案。
@@ -56,6 +58,6 @@ AudioWorklet 只做采集、缓冲和必要的轻量统计；后续 FFT/拟合�
 
 开始采集要用户手势；停止/页面离开要释放所有 track、AudioContext 和节点；权限等待期间的取消不能稍后偷偷开启；播放样本与麦克风互斥。切后台/系统中断后不默认连续计分，恢复时提示重新开始。PWA 缓存只缓存应用外壳，不把音频塞进 Cache Storage；升级时避免旧 worklet 与新算法混用。
 
-2026-09-14 用户要求 GitHub 托管及自行部署 PWA，故安装外壳提前：生产构建包含 manifest、图标和静态资源预缓存，开发模式不注册 Service Worker。部署平台使用 `npm ci`、`npm run build`，发布 `dist`。仓库保持私有，手机访问由用户选择的 HTTPS 部署提供；录音仍仅内存保存。
+PWA 安装外壳提前：生产构建包含 manifest、图标和静态资源预缓存，开发模式不注册 Service Worker。部署使用 `npm ci`、`npm run build`，发布 `dist`；公开仓库的 Pages 部署与用户本地数据分离。
 
-后续用户明确同意仓库公开，现由 GitHub Pages 持续部署。歌曲数据架构另见 [NOTE_SEQUENCE.md](NOTE_SEQUENCE.md)：来源适配器 → 与乐器无关的 NoteSequence → 依赖具体琴配置的 FingeringPlan → 谱面/跟练消费者。原歌曲、显式移调参数和指法候选分别保存；导入诊断与音频识别置信度互不混用。
+歌曲数据架构另见 [NOTE_SEQUENCE.md](NOTE_SEQUENCE.md)：来源适配器 → 与乐器无关的 NoteSequence → 依赖具体琴配置的 FingeringPlan → 谱面/跟练消费者。原歌曲、显式移调参数和指法候选分别保存；导入诊断与音频识别置信度互不混用。
