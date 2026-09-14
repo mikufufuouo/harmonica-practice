@@ -26,18 +26,29 @@ OCR 原文、候选与用户修正三者分开保存。`B ↔ 8`、`D ↔ 0/O`�
 
 ## 数据层：三个对象，而非混在一张表
 
-- `SourceAsset`（未来实现）：本地 IndexedDB Blob、assetId、mime、尺寸、内容哈希、可选用户提供来源名称；不把图片 base64 塞进歌曲 JSON。保留原图坐标到裁剪/缩放/旋转图的变换，便于点击音符回原图。
-- `ImportDraft`（未来实现）：sourceAssets、orderedRegions（BD/lyrics/heading/unknown）、每 token 的原始字符串/候选/区域/置信证据、原谱琴配置、blocker diagnostics、人工修改记录、`draft/needs-review/confirmed` 状态和revision。编辑已确认的区域使对应确认失效，防止陈旧确认直接入库。
-- `LibraryEntry`（未来实现）：entryId、sequenceId、sequenceRevision、已确认 NoteSequence、sourceAssetRefs、审核摘要、创建/更新时间。Song 不依赖图片存在才能播放；备份可选择歌曲 JSON 或含原图包。备份保留歌词与引用，删除来源图后明确显示来源不可回看。
+### 2026-09-14 本轮实现范围
 
-本轮已预留 SourceRef 的图片 region、source.format=image 与独立 lyrics 行。未实现自动歌词对齐、OCR 模型、草稿状态机或谱库，这些要成套交付。
+用户本轮明确要求「实现图片识别与谱库」，将原 S1a/S1b 与 S2 的最小 OCR 试验组成一个端到端增量：单图 → 本地 OCR 待校对草稿 → 人工确认 → 本地歌曲。此范围不代表 S2 真实截图精度与手机性能门槛通过。
+
+- 首版使用完整单图预览，请先在相册裁剪到清晰短谱；应用内裁剪、逐 token 坐标、长图切块去重及候选纠错留待真实样例驱动。
+- OCR 原文与人工编辑结果分开；所有识别行供人工分类/校对，不以能提取合法 BD 作为整图完成。原谱琴调未知或存在阻塞错误不能确认入库；编辑相关内容使确认失效。
+- 图像只在设备上识别；首次识别需下载运行资源/语言模型，失败可以继续手工录入。离线外壳与已保存谱库可用不等于 OCR 完全离线可用。
+- JSON 备份保存 NoteSequence（包括歌词与来源引用），不包含原图或完整校对草稿；导入后原图不可回看的情况需明确提示。完整含图备份另做后续增量。
+
+下列对象字段是完整路线契约；首版实际字段以源码为准，尚未实现的坐标/哈希/修改历史不可当成已有能力。
+
+- `SourceAsset`（完整目标）：本地 IndexedDB Blob、assetId、mime、尺寸、内容哈希、可选用户提供来源名称；不把图片 base64 塞进歌曲 JSON。保留原图坐标到裁剪/缩放/旋转图的变换，便于点击音符回原图。
+- `ImportDraft`（完整目标）：sourceAssets、orderedRegions（BD/lyrics/heading/unknown）、每 token 的原始字符串/候选/区域/置信证据、原谱琴配置、blocker diagnostics、人工修改记录、`draft/needs-review/confirmed` 状态和revision。编辑已确认的区域使对应确认失效，防止陈旧确认直接入库。
+- `LibraryEntry`（完整目标）：entryId、sequenceId、sequenceRevision、已确认 NoteSequence、sourceAssetRefs、审核摘要、创建/更新时间。Song 不依赖图片存在才能播放；备份可选择歌曲 JSON 或含原图包。备份保留歌词与引用，删除来源图后明确显示来源不可回看。
+
+SourceRef 支持图片 region、source.format=image 与独立 lyrics 行。首版只保留可靠的文字来源引用，不制造逐 token 图片坐标。实际数据层见 [score-library.ts](../src/score-library.ts)，与上述完整目标的差距包括区域坐标、置信证据、revision 修改历史及含图备份；歌词不自动对齐。
 
 ## Roadmap：与音频验证并行，排在完整跟练之前
 
 | 包 | 实际交付 | 进入下一包的依据 |
 |---|---|---|
-| S0，本轮 | NoteSequence、BD 文本适配、歌词未对齐行、指法预览；来源坐标契约 | 同音/换琴/移调/错误符号/歌词保存的测试通过 |
-| S1，下个谱面包 | 本地谱库 + 图片原图旁的人工录入/校对草稿，逐行确认后保存 | 在手机完成一首短谱，刷新后歌曲与草稿可恢复，JSON 备份往返无丢音/歌词 |
+| S0，数据基础 | NoteSequence、BD 文本适配、歌词未对齐行、指法预览；来源坐标契约 | 同音/换琴/移调/错误符号/歌词保存的测试通过 |
+| S1，人工校对与谱库 | 本地谱库 + 图片原图旁的人工录入/校对草稿，逐行确认后保存 | 在手机完成一首短谱，刷新后歌曲与草稿可恢复，JSON 备份往返无丢音/歌词 |
 | S2，图片识别试验 | 给 S1 加本地 OCR、BD/歌词分区及候选纠错 | 用真实公众号截图测音符准确率、行序/歌词匹配和人工修正耗时；没达到收益就保留手工录入 |
 | S3，接入跟练 | 已确认短谱用于逐音跟练；节奏未知则不做节奏评分 | 对照确认后的谱逐事件核对；音频反馈必须另外通过音频路线门槛 |
 | S4，复杂输入扩展 | 更复杂长图、更多方言、必要时可选视觉模型；MIDI/XML适配按实际需求进入 | 由真实失败样本决定，不一次铺完所有来源 |
