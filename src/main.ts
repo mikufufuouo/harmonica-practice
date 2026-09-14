@@ -6,6 +6,7 @@ import {
   noteFor,
 } from "./lib/harmonica.ts";
 import { encodeMonoWav } from "./lib/wav.ts";
+import { mountScoreImport } from "./score-ui.ts";
 
 type CaptureKind = "single" | "double" | "triple" | "ambient" | "uncertain";
 type Intent = {
@@ -43,7 +44,7 @@ const pageSessionId = crypto.randomUUID();
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `<main><header><p class="eyebrow">阶段 0A · 本地音频采样实验</p><h1>口琴单音采样实验台</h1><p class="intro">这不是识别器。点选的孔位、B/D 和标签只记录你的意图，供后续验证“单音与串孔”使用。</p></header>
-<section class="panel setup"><div><label>口琴调式 <select id="key"><option>C</option><option>G</option><option>A</option><option>D</option><option>F</option><option>Bb</option></select></label><small>10 孔 Richter；调式与实际琴需由你确认。</small></div><div class="controls"><button id="mic" class="primary">开启麦克风</button><button id="stopMic" disabled>停止麦克风</button></div></section>
+<div id="score-import"></div><section class="panel setup"><div><label>口琴调式 <select id="key"><option>C</option><option>G</option><option>A</option><option>D</option><option>F</option><option>Bb</option></select></label><small>10 孔 Richter；调式与实际琴需由你确认。</small></div><div class="controls"><button id="mic" class="primary">开启麦克风</button><button id="stopMic" disabled>停止麦克风</button></div></section>
 <section class="panel"><div class="section-title"><h2>虚拟口琴</h2><span id="choice">意图：4B</span></div><div class="harp" id="harp"></div><p class="hint">点击只是在标记本次采样的目标，绝不代表浏览器已识别出该孔。</p></section>
 <section class="grid"><section class="panel"><h2>输入状态</h2><p id="status" role="status">尚未开启麦克风。没有麦克风也可以浏览本页。</p><dl><dt>实际采样率</dt><dd id="rate">—</dd><dt>轨道设置</dt><dd id="settings">—</dd><dt>音量 RMS</dt><dd id="rms">—</dd><dt>削波</dt><dd id="clip">—</dd></dl></section><section class="panel"><h2>采样标签</h2><label>你的判断 <select id="kind"><option value="single">单孔</option><option value="double">相邻双孔</option><option value="triple">相邻三孔</option><option value="ambient">环境声</option><option value="uncertain">不确定</option></select></label><div class="tag-row"><label>B/D <select id="breath"><option>B</option><option>D</option></select></label><label>连续孔 <input id="holes" inputmode="numeric" value="4" /></label></div><small id="holeHelp">仅接受 1–10 的连续孔，例如 4、4,5、4,5,6。</small><div class="controls"><button id="record" class="record" disabled>录制采样（最多 5 秒）</button><button id="finish" disabled>完成本次采样</button><button id="cancel" disabled>取消本次采样</button></div><p id="recording">未录制</p></section></section>
 <section class="panel"><h2>最近一次采样（仅内存）</h2><p id="take">尚无录音。不会上传、不会自动保存到设备。</p><div class="controls"><button id="play" disabled>播放</button><button id="wav" disabled>导出 WAV</button><button id="json" disabled>导出 JSON 元数据</button></div><p class="hint">麦克风开启期间不能播放，避免反馈。</p></section></main>`;
@@ -409,6 +410,7 @@ document.addEventListener("visibilitychange", () => {
 });
 renderHarp();
 validHoles();
+mountScoreImport($("score-import"));
 
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {

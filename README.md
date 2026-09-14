@@ -13,6 +13,12 @@ npm run build
 
 产品边界、架构及采样规程见 [docs/PRODUCT.md](docs/PRODUCT.md)、[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)、[docs/EXPERIMENT.md](docs/EXPERIMENT.md)。
 
+## BD 谱面导入
+
+页面提供可展开的“BD 谱面导入预览”面板，可粘贴公众号常见的短 BD 文本，选择原谱琴调后生成统一歌曲序列预览，并按当前口琴调显示候选指法。导出的歌曲 JSON 保存原曲 NoteSequence；歌词会保留为尚未与音符对齐的原文，需人工确认后才进入曲库。图片导入正在规划，本轮可手工录入图片中的文字；当前不自动识别图片，也不承诺覆盖所有公众号格式。
+
+谱面数据层和导入约定见 [docs/NOTE_SEQUENCE.md](docs/NOTE_SEQUENCE.md)；图片导入、人工校对与进入本地曲库的后续边界见 [docs/IMAGE_IMPORT.md](docs/IMAGE_IMPORT.md)。
+
 ## 采样与隐私
 
 浏览器请求关闭回声消除、噪声抑制和自动增益，页面会显示浏览器实际返回的 track settings；`unknown` 表示浏览器未报告，不能据此认为已关闭。音频经 `AudioWorklet` 取得原始单声道 PCM，只保存在当前页面内存。只有点击导出时才下载 WAV 或 JSON 元数据；刷新、离开页面或停止麦克风都会释放资源，页面不会上传、回放监听或自动持久化录音。
@@ -25,4 +31,4 @@ npm run build
 
 - 只支持展示 10 孔 Richter 布局；C/G/A/D/F/Bb 转调只是显示参考，请依实际口琴确认。
 - 尚未验证手机麦克风、浏览器处理链与各种口琴的采样可比性。Worklet 以 2048 个样本为批次传给页面，开始/结束边界受批次和消息调度影响；导出的时长本身按实际 PCM 样本数计算。
-- 本阶段已包含 PWA 安装与离线外壳，尚不含谱面、跟练或演奏报告，尤其不应把它误解为已经成功判断串孔。
+- 本阶段已包含 PWA 安装、离线外壳和 BD 导入预览，尚无跟练或演奏报告，尤其不应把它误解为已经成功判断串孔。

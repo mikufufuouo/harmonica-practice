@@ -57,3 +57,5 @@ AudioWorklet 只做采集、缓冲和必要的轻量统计；后续 FFT/拟合�
 开始采集要用户手势；停止/页面离开要释放所有 track、AudioContext 和节点；权限等待期间的取消不能稍后偷偷开启；播放样本与麦克风互斥。切后台/系统中断后不默认连续计分，恢复时提示重新开始。PWA 缓存只缓存应用外壳，不把音频塞进 Cache Storage；升级时避免旧 worklet 与新算法混用。
 
 2026-09-14 用户要求 GitHub 托管及自行部署 PWA，故安装外壳提前：生产构建包含 manifest、图标和静态资源预缓存，开发模式不注册 Service Worker。部署平台使用 `npm ci`、`npm run build`，发布 `dist`。仓库保持私有，手机访问由用户选择的 HTTPS 部署提供；录音仍仅内存保存。
+
+后续用户明确同意仓库公开，现由 GitHub Pages 持续部署。歌曲数据架构另见 [NOTE_SEQUENCE.md](NOTE_SEQUENCE.md)：来源适配器 → 与乐器无关的 NoteSequence → 依赖具体琴配置的 FingeringPlan → 谱面/跟练消费者。原歌曲、显式移调参数和指法候选分别保存；导入诊断与音频识别置信度互不混用。
