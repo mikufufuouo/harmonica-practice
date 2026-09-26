@@ -1,6 +1,6 @@
 {
-  "name": "口琴单音采样实验台",
-  "short_name": "口琴实验台",
+  "name": "口琴曲库与练习",
+  "short_name": "口琴曲库",
   "display": "standalone",
   "start_url": "./",
   "scope": "./",

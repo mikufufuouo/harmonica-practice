@@ -1,0 +1,138 @@
+.image-score-dialog {
+  width: min(100vw, 1300px);
+  height: min(100dvh, 1000px);
+  max-width: none;
+  max-height: none;
+  margin: 0 auto;
+  padding: 0;
+  border: 1px solid #42655b;
+  border-radius: 14px;
+  color: #edf8f4;
+  background: #0d1917;
+  overflow: hidden;
+}
+.image-score-dialog::backdrop {
+  background: rgb(0 0 0 / 0.72);
+}
+.image-score-dialog.image-score-fullscreen-fallback {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  margin: 0;
+  border-radius: 0;
+  z-index: 2147483647;
+}
+.image-score-dialog.image-score-fullscreen-fallback
+  .image-score-toolbar::after {
+  content: "沉浸式全屏";
+  color: #b8d0c8;
+  font-size: 0.78rem;
+}
+.image-score-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 52px;
+  padding: max(8px, env(safe-area-inset-top)) 12px 8px;
+  border-bottom: 1px solid #29433d;
+  background: #152926;
+}
+.image-score-title {
+  overflow: hidden;
+  min-width: 4em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.image-score-status {
+  color: #b8d0c8;
+  font-size: 0.84rem;
+}
+.image-score-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.image-score-controls button {
+  padding: 6px 9px;
+  font-size: 0.9rem;
+}
+.image-score-counter {
+  min-width: 4.5em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.image-score-viewport {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  background: #07100e;
+  outline: none;
+}
+.image-score-viewport:active {
+  cursor: grabbing;
+}
+.image-score-dialog {
+  display: flex;
+  flex-direction: column;
+}
+.image-score-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.image-score-image {
+  display: block;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.image-score-retry {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+}
+@media (max-width: 680px) {
+  .image-score-dialog {
+    width: 100vw;
+    height: 100dvh;
+    border-radius: 0;
+    border: 0;
+  }
+  .image-score-toolbar {
+    align-items: flex-start;
+    padding-bottom: 8px;
+  }
+  .image-score-title {
+    max-width: 34vw;
+    padding-top: 6px;
+  }
+  .image-score-toolbar {
+    flex-wrap: wrap;
+  }
+  .image-score-status:not(:empty) {
+    order: 2;
+    width: 100%;
+  }
+  .image-score-status:empty {
+    display: none;
+  }
+  .image-score-controls {
+    gap: 4px;
+  }
+  .image-score-controls button {
+    padding: 6px 7px;
+    font-size: 0.82rem;
+  }
+  .image-score-close {
+    order: -1;
+  }
+}

@@ -1,0 +1,59 @@
+.private-library > label {
+  display: grid;
+  gap: 0.45rem;
+  margin: 1rem 0;
+}
+.private-library input[type="search"] {
+  width: 100%;
+}
+.private-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+.private-actions label {
+  flex: 1 1 220px;
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.private-actions input {
+  max-width: 100%;
+  min-width: 0;
+}
+.private-song-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+.private-song {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  border: 1px solid #344854;
+  border-radius: 12px;
+  padding: 1rem;
+  min-width: 0;
+}
+.private-song-title {
+  text-align: left;
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
+}
+.private-song small {
+  flex: 1;
+}
+.private-bd-dialog {
+  color: inherit;
+  background: #13232a;
+  border: 1px solid #49636c;
+  border-radius: 16px;
+  width: min(900px, 92vw);
+  max-height: 90dvh;
+  overflow: auto;
+}
+.private-bd-dialog::backdrop {
+  background: #000b;
+}

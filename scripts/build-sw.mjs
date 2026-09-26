@@ -25,7 +25,7 @@ self.addEventListener('fetch', event => {
   const rootNavigation = event.request.mode === 'navigate' && (url.href === self.registration.scope || url.href === new URL('index.html', self.registration.scope).href);
   if (!precacheUrls().has(url.href) && !rootNavigation) return;
   event.respondWith(caches.open(cacheName()).then(async cache => {
-    const cached = await cache.match(event.request);
+    // Only build-time public shell files reach this handler. Vary: Origin from\n    // static preview servers must not make same-origin module requests miss precache.\n    const cached = await cache.match(event.request, { ignoreVary: true });
     if (cached) return cached;
     if (event.request.mode === 'navigate') return (await cache.match('./index.html')) || fetch(event.request);
     return fetch(event.request);

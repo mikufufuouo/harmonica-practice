@@ -1,6 +1,6 @@
-# 口琴单音采样实验台（阶段 0A）
+# 口琴曲库与练习
 
-这是后续“纯净单音 / 串孔”算法的本地数据采样实验台，不包含任何音高识别或串孔判定。虚拟口琴上点选的孔位、B/D 与采样标签均为使用者的意图记录，不能当作识别结果。
+私人图片谱库、BD 谱面导入与本地音频采样实验台。图片谱支持整包导入、搜索、多页、缩放拖动、全屏、收藏与最近看谱，不需要 OCR。音频不包含任何音高识别或串孔判定。虚拟口琴上点选的孔位、B/D 与采样标签均为使用者的意图记录，不能当作识别结果。
 
 [手机试用](https://mikufufuouo.github.io/harmonica-practice/) · [当前进度与验证范围](docs/STATE.md)
 
@@ -20,6 +20,12 @@ npm run build
 构建产物在 `dist/`，可部署到 Vercel、Cloudflare Pages 或任何 HTTPS 静态站点。另有 `npm run dev`、`npm run typecheck` 与 `npm test`。开发服务器在桌面浏览器通常通过 `localhost` 获得麦克风权限；手机与平板必须以 HTTPS 访问，单纯局域网 HTTP 不可用。iOS Safari 可通过“分享”→“添加到主屏幕”作为独立应用打开。
 
 产品边界、架构及采样规程见 [docs/PRODUCT.md](docs/PRODUCT.md)、[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)、[docs/EXPERIMENT.md](docs/EXPERIMENT.md)。
+
+## 私人图片谱库
+
+首页导入一份含 `manifest.json` 与原图的 ZIP，即可批量加入曲库。购买的谱图只存本机，不随公开应用部署；手机/iPad 可通过“文件”选择同一 ZIP 导入。可用“备份图片谱 ZIP”一次导出所有原图。原有 BD 入口在下方折叠面板。
+
+资源格式、来源整理和以后批量增加曲目的流程见 [图片谱说明](docs/IMAGE_SCORES.md)。
 
 ## BD 谱面导入
 

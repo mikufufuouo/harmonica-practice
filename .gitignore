@@ -10,3 +10,7 @@ dist/
 # Local recordings and exports
 *.wav
 recordings/
+
+# Private purchased scores, indexes and local verification artifacts
+private-scores/
+.local-tests/

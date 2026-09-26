@@ -54,8 +54,8 @@ const bdLike = (value: string) => /[０-９\d]+\s*[ＢＤｂｄBDbd]/.test(value
 export function mountScoreImport(container: HTMLElement): void {
   const root = el("details");
   root.className = "score-import panel";
-  root.open = true;
-  root.append(el("summary", "图片识别与本地谱库（实验）"));
+  root.open = false;
+  root.append(el("summary", "BD 转录、OCR 与原有谱库（实验）"));
   const hint = el(
     "p",
     "选择已在相册中裁好的清晰谱图。图片只保存在本机；OCR 在本机运行，首次识别会联网下载并缓存语言模型，图片不会上传。它可能漏行或错读，必须逐行人工确认后才能入库。",
@@ -317,6 +317,7 @@ export function mountScoreImport(container: HTMLElement): void {
     entriesBox.prepend(pane);
   }
   async function renderLibrary() {
+    document.dispatchEvent(new Event("score-library-changed"));
     entriesBox.replaceChildren();
     try {
       const entries = (await listEntries()).sort((a, b) =>
