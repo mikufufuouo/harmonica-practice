@@ -48,7 +48,7 @@
 ## 仓库与部署
 
 - [公开仓库](https://github.com/mikufufuouo/harmonica-practice)，main；[手机试用](https://mikufufuouo.github.io/harmonica-practice/)。公开/常规推送/部署已授权，私人材料不公开。
-- 最近已确认应用部署：`449e6bc`（应用代码 `76e332c`），[Actions 36304277546](https://github.com/mikufufuouo/harmonica-practice/actions/runs/36304277546) success。2026-09-27 核对线上脚本 `index-Drf7hvTx.js`。
+- 最近已确认应用部署：`b4d645a`（应用代码 `6046e51`），[Actions 36305850131](https://github.com/mikufufuouo/harmonica-practice/actions/runs/36305850131) success。2026-09-27 核对线上脚本 `index-D1VpIwPi.js`。
 - `npm ci`、`npm run dev`；校验 `npm run typecheck` / `npm test` / `npm run build`。输出 dist，main 推送触发 Pages。
 
 ## 本轮交接
