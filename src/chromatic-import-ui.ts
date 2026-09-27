@@ -25,6 +25,9 @@ export function mountChromaticImport(root: HTMLElement): void {
   pick.accept = ".json,application/json";
   const ack = el("input") as HTMLInputElement;
   ack.type = "checkbox";
+  const octave = el("select");
+  octave.setAttribute("aria-label", "演奏八度偏移");
+  octave.append(new Option("原八度（0）", "0"), new Option("升高八度（+12 半音）", "12"));
   const review = el("input") as HTMLInputElement;
   review.type = "checkbox";
   const status = el("p");
@@ -44,6 +47,7 @@ export function mountChromaticImport(root: HTMLElement): void {
     hint,
     pick,
     labelBox("我确认琴为 C 调 KB-12 标准 Solo，且核对 1B=C4、1D=D4", ack),
+    labelBox("演奏时移八度（原始音符音高保持不变）", octave),
     source,
     rows,
     labelBox("我已核对来源、每个音符及整段指法", review),
@@ -68,8 +72,9 @@ export function mountChromaticImport(root: HTMLElement): void {
     rows.replaceChildren();
     if (!sequence) return;
     const notes = sequence.events.filter((e) => e.kind === "note");
+    const octaveShift = Number(octave.value) as 0 | 12;
     const path = optimizeSoloPath(
-      notes.map((e) => ({ midi: e.pitch.midi })),
+      notes.map((e) => ({ midi: e.pitch.midi + octaveShift })),
       "C",
       pins,
     );
@@ -130,8 +135,9 @@ export function mountChromaticImport(root: HTMLElement): void {
           render();
         }
       };
-      li.append(pitchInput, el("span", ` · BD `));
-      const choices = soloCandidates(event.pitch.midi, "C");
+      const targetMidi = event.pitch.midi + octaveShift;
+      li.append(pitchInput, el("span", ` · 演奏音高 ${pitchName(targetMidi)}（MIDI ${targetMidi}）· BD `));
+      const choices = soloCandidates(targetMidi, "C");
       const select = el("select");
       select.setAttribute("aria-label", `音符 ${i + 1} 指法`);
       choices.forEach((c) => select.append(new Option(c.label, c.label)));
@@ -140,7 +146,7 @@ export function mountChromaticImport(root: HTMLElement): void {
       select.onchange = () => {
         pins[i] = select.value;
         const c = choices.find((c) => c.label === select.value);
-        if (c) overrides[event.id] = { midi: event.pitch.midi, label: c.label };
+        if (c) overrides[event.id] = { midi: targetMidi, label: c.label };
         review.checked = false;
         render();
       };
@@ -193,7 +199,7 @@ export function mountChromaticImport(root: HTMLElement): void {
         el("h3", sequence.title),
         ...sequence.sources.map((s) => {
           const p = el("p");
-          p.textContent = `${s.format}${s.description ? ` · ${s.description}` : ""}${s.rawText ? ` · ${s.rawText}` : ""}`;
+          p.textContent = `${s.format}${s.description ? ` · ${s.description}` : ""}`;
           if (s.url) {
             try {
               const u = new URL(s.url);
@@ -206,7 +212,18 @@ export function mountChromaticImport(root: HTMLElement): void {
               }
             } catch {}
           }
-          return p;
+          const fragment = document.createDocumentFragment();
+          fragment.append(p);
+          if (s.rawText) {
+            const raw = el("details");
+            raw.className = "score-source-raw";
+            raw.append(el("summary", "查看原始谱文"));
+            const pre = el("pre", s.rawText);
+            pre.className = "score-source-pre";
+            raw.append(pre);
+            fragment.append(raw);
+          }
+          return fragment;
         }),
       );
       status.textContent = `已校验 ${sequence.events.length} 个事件。节奏字段按原谱保留；本工具仅转换音高。`;
@@ -216,6 +233,13 @@ export function mountChromaticImport(root: HTMLElement): void {
     }
   };
   ack.onchange = review.onchange = () => render();
+  octave.onchange = () => {
+    overrides = {};
+    pins = {};
+    review.checked = false;
+    status.textContent = "演奏八度已更改；旧指法选择已清除，请重新检查指法。";
+    render();
+  };
   save.onclick = async () => {
     if (!sequence || !ack.checked || !review.checked || saving) return;
     saving = true;
@@ -223,7 +247,7 @@ export function mountChromaticImport(root: HTMLElement): void {
     try {
       const entry = await saveChromaticSequence(
         sequence,
-        { model: "kb12-solo-assumed", key: "C" },
+        { model: "kb12-solo-assumed", key: "C", octaveShift: Number(octave.value) as 0 | 12 },
         overrides,
       );
       document.dispatchEvent(new Event("score-library-changed"));

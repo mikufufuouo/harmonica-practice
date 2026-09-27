@@ -96,6 +96,7 @@ test("chromatic save validates sequence and persists manual fingering overrides"
   );
   assert.equal((await listEntries()).length, before + 1);
   assert.equal(entry.fingeringOverrides?.["event-1"]?.label, "1B");
+  assert.equal(entry.chromaticProfile?.octaveShift, 0);
   await assert.rejects(() =>
     saveChromaticSequence(
       { ...sequence, events: [] },
@@ -124,4 +125,44 @@ test("chromatic save validates sequence and persists manual fingering overrides"
     }).entries.length,
     0,
   );
+});
+
+test("chromatic octave shift preserves source pitches and validates target fingering", async () => {
+  Object.defineProperty(globalThis, "indexedDB", {
+    value: indexedDB,
+    configurable: true,
+  });
+  const source = structuredClone(parseJianpu("1=C\n1 2", { title: "八度" }).sequence!);
+  const first = source.events[0]!;
+  assert.equal(first.kind, "note");
+  if (first.kind !== "note") return;
+  first.pitch.midi = 58;
+  const target = 70;
+  const fingering = soloCandidates(target, "C")[0]!;
+  const entry = await saveChromaticSequence(
+    source,
+    { model: "kb12-solo-assumed", key: "C", octaveShift: 12 },
+    { [first.id]: { midi: target, label: fingering.label } },
+  );
+  assert.equal(entry.sequence.events[0]?.kind, "note");
+  if (entry.sequence.events[0]?.kind === "note")
+    assert.equal(entry.sequence.events[0].pitch.midi, 58);
+  assert.equal(entry.chromaticProfile?.octaveShift, 12);
+  assert.equal(entry.fingeringOverrides?.[first.id]?.midi, 70);
+  assert.equal((await listEntries()).find((item) => item.id === entry.id)?.chromaticProfile?.octaveShift, 12);
+  await assert.rejects(() =>
+    saveChromaticSequence(source, { model: "kb12-solo-assumed", key: "C", octaveShift: 24 as 12 }),
+  );
+  await assert.rejects(() =>
+    saveChromaticSequence(
+      source,
+      { model: "kb12-solo-assumed", key: "C", octaveShift: 12 },
+      { [first.id]: { midi: 58, label: "1B" } },
+    ),
+  );
+  const invalid = validateLibraryBackup({
+    schemaVersion: 1,
+    entries: [{ ...entry, chromaticProfile: { ...entry.chromaticProfile, octaveShift: 13 as 12 } }],
+  });
+  assert.equal(invalid.entries.length, 0);
 });

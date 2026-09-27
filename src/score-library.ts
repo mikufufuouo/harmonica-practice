@@ -36,7 +36,12 @@ export type LibraryEntry = {
   draftId?: string;
   reviewSummary?: string;
   sequence: NoteSequence;
-  chromaticProfile?: { model: "kb12-solo-assumed"; key: "C" };
+  chromaticProfile?: {
+    model: "kb12-solo-assumed";
+    key: "C";
+    /** Playback pitch offset; absent on legacy entries means no shift. */
+    octaveShift?: 0 | 12;
+  };
   fingeringOverrides?: Record<string, { midi: number; label: string }>;
 };
 
@@ -166,25 +171,36 @@ export async function saveChromaticSequence(
 ): Promise<LibraryEntry> {
   const checked = validateNoteSequence(sequence);
   if (!checked.valid) throw new Error(checked.errors.join(" "));
+  if (
+    !profile ||
+    profile.model !== "kb12-solo-assumed" ||
+    profile.key !== "C" ||
+    (profile.octaveShift !== undefined &&
+      profile.octaveShift !== 0 &&
+      profile.octaveShift !== 12)
+  )
+    throw new Error("此版本仅支持暂定的 KB-12 C 标准 Solo 映射及 0/+12 半音选择。");
   const melodyErrors = melodyEligibility(sequence);
   if (melodyErrors.length) throw new Error(melodyErrors.join(" "));
   if (
     sequence.events.some(
-      (event) =>
-        event.kind === "note" && !soloCandidates(event.pitch.midi, "C").length,
+      (event) => event.kind === "note" && !soloCandidates(
+        shiftedChromaticMidi(event.pitch.midi, profile?.octaveShift ?? 0), "C",
+      ).length,
     )
   )
     throw new Error("有音符超出暂定 C 调 Solo 的可奏范围。");
-  if (!profile || profile.model !== "kb12-solo-assumed" || profile.key !== "C")
-    throw new Error("此版本仅支持暂定的 KB-12 C 标准 Solo 映射。");
   for (const [eventId, override] of Object.entries(overrides)) {
     const event = sequence.events.find((item) => item.id === eventId);
+    const targetMidi = event?.kind === "note"
+      ? shiftedChromaticMidi(event.pitch.midi, profile.octaveShift ?? 0)
+      : -1;
     if (
       !event ||
       event.kind !== "note" ||
       !override ||
-      override.midi !== event.pitch.midi ||
-      !soloCandidates(event.pitch.midi, "C").some(
+      override.midi !== targetMidi ||
+      !soloCandidates(targetMidi, "C").some(
         (c) => c.label === override.label,
       )
     )
@@ -198,7 +214,7 @@ export async function saveChromaticSequence(
     updatedAt: new Date().toISOString(),
     assetId: "",
     sequence,
-    chromaticProfile: profile,
+    chromaticProfile: { ...profile, octaveShift: profile.octaveShift ?? 0 },
     fingeringOverrides: overrides,
   };
   await put("entries", entry);
@@ -442,7 +458,10 @@ function validChromaticFields(entry: Partial<LibraryEntry>): boolean {
     entry.chromaticProfile !== undefined &&
     (!entry.chromaticProfile ||
       entry.chromaticProfile.model !== "kb12-solo-assumed" ||
-      entry.chromaticProfile.key !== "C")
+      entry.chromaticProfile.key !== "C" ||
+      (entry.chromaticProfile.octaveShift !== undefined &&
+        entry.chromaticProfile.octaveShift !== 0 &&
+        entry.chromaticProfile.octaveShift !== 12))
   )
     return false;
   if (entry.chromaticProfile !== undefined) {
@@ -450,7 +469,9 @@ function validChromaticFields(entry: Partial<LibraryEntry>): boolean {
     if (
       entry.sequence.events.some(
         (event) =>
-          event.kind === "note" && !soloCandidates(event.pitch.midi, "C").length,
+          event.kind === "note" && !soloCandidates(
+          shiftedChromaticMidi(event.pitch.midi, entry.chromaticProfile?.octaveShift ?? 0), "C",
+          ).length,
       )
     )
       return false;
@@ -465,16 +486,24 @@ function validChromaticFields(entry: Partial<LibraryEntry>): boolean {
     return false;
   for (const [id, override] of Object.entries(entry.fingeringOverrides)) {
     const event = entry.sequence.events.find((item) => item.id === id);
+    const targetMidi = event?.kind === "note"
+      ? shiftedChromaticMidi(event.pitch.midi, entry.chromaticProfile?.octaveShift ?? 0)
+      : -1;
     if (
       !event ||
       event.kind !== "note" ||
       !override ||
-      override.midi !== event.pitch.midi ||
-      !soloCandidates(event.pitch.midi, "C").some(
+      override.midi !== targetMidi ||
+      !soloCandidates(targetMidi, "C").some(
         (candidate) => candidate.label === override.label,
       )
     )
       return false;
   }
   return true;
+}
+
+/** Source pitches remain untouched; this only chooses the note octave for BD playback. */
+export function shiftedChromaticMidi(sourceMidi: number, octaveShift: 0 | 12): number {
+  return sourceMidi + octaveShift;
 }

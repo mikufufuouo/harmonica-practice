@@ -139,6 +139,13 @@ export function mountPrivateLibrary(container: HTMLElement): void {
       key.append(new Option(k, k)),
     );
     if (chromatic) key.value = "C";
+    const octave = el("select");
+    octave.setAttribute("aria-label", "演奏八度偏移");
+    octave.append(
+      new Option("原八度（0）", "0"),
+      new Option("升高八度（+12 半音）", "12"),
+    );
+    octave.value = String(entry.chromaticProfile?.octaveShift ?? 0);
     const notes = el("ol");
     notes.className = "score-sequence";
     const status = el("p");
@@ -160,17 +167,18 @@ export function mountPrivateLibrary(container: HTMLElement): void {
       const noteEvents = entry.sequence.events.filter((e) => e.kind === "note");
       const pins: Record<number, string> = {};
       noteEvents.forEach((event, index) => {
+        const targetMidi = event.pitch.midi + Number(octave.value);
         const saved = entry.fingeringOverrides?.[event.id];
         if (
-          saved?.midi === event.pitch.midi &&
-          soloCandidates(event.pitch.midi, "C").some(
+          saved?.midi === targetMidi &&
+          soloCandidates(targetMidi, "C").some(
             (c) => c.label === saved.label,
           )
         )
           pins[index] = saved.label;
       });
       const path = optimizeSoloPath(
-        noteEvents.map((e) => ({ midi: e.pitch.midi })),
+        noteEvents.map((e) => ({ midi: e.pitch.midi + Number(octave.value) })),
         "C",
         pins,
       );
@@ -180,14 +188,15 @@ export function mountPrivateLibrary(container: HTMLElement): void {
           if (event.kind === "rest")
             return el("li", `${event.order + 1}. 休止`);
           const i = ni++,
-            candidates = soloCandidates(event.pitch.midi, "C"),
+            targetMidi = event.pitch.midi + Number(octave.value),
+            candidates = soloCandidates(targetMidi, "C"),
             saved = entry.fingeringOverrides?.[event.id];
           const valid =
-            saved?.midi === event.pitch.midi &&
+            saved?.midi === targetMidi &&
             candidates.some((c) => c.label === saved.label);
           const li = el(
             "li",
-            `${event.order + 1}. ${event.pitch.spelling ?? pitchName(event.pitch.midi)} · MIDI ${event.pitch.midi} → `,
+            `${event.order + 1}. 原音 ${event.pitch.spelling ?? pitchName(event.pitch.midi)}（MIDI ${event.pitch.midi}）→ 演奏 ${pitchName(targetMidi)}（MIDI ${targetMidi}）· `,
           );
           if (!candidates.length) {
             li.append(el("strong", "不可奏"));
@@ -203,7 +212,7 @@ export function mountPrivateLibrary(container: HTMLElement): void {
           select.onchange = async () => {
             entry.fingeringOverrides ??= {};
             entry.fingeringOverrides[event.id] = {
-              midi: event.pitch.midi,
+              midi: targetMidi,
               label: select.value,
             };
             try {
@@ -228,7 +237,7 @@ export function mountPrivateLibrary(container: HTMLElement): void {
     for (const source of entry.sequence.sources) {
       const p = el(
         "p",
-        `${source.format}${source.description ? ` · ${source.description}` : ""}${source.rawText ? ` · ${source.rawText}` : ""}`,
+        `${source.format}${source.description ? ` · ${source.description}` : ""}`,
       );
       if (source.url) {
         try {
@@ -243,6 +252,15 @@ export function mountPrivateLibrary(container: HTMLElement): void {
         } catch {}
       }
       sourceInfo.append(p);
+      if (source.rawText) {
+        const raw = el("details");
+        raw.className = "score-source-raw";
+        raw.append(el("summary", "查看原始谱文"));
+        const pre = el("pre", source.rawText);
+        pre.className = "score-source-pre";
+        raw.append(pre);
+        sourceInfo.append(raw);
+      }
     }
     dlg.append(
       close,
@@ -253,12 +271,37 @@ export function mountPrivateLibrary(container: HTMLElement): void {
           ? "BD 指法 · KB-12 C 调标准 Solo 暂定表；请以实物音位核对。Orchestral 暂不支持。"
           : "BD 指法 · 10 孔 Richter 自然音",
       ),
-      ...(chromatic ? [] : [key]),
+      ...(chromatic ? [
+        el("p", "八度偏移只影响演奏指法，NoteSequence 中的来源音高不变。"),
+        octave,
+      ] : [key]),
       sourceInfo,
       notes,
       status,
       el("p", entry.sequence.lyrics.map((l) => l.text).join(" / ")),
     );
+    octave.onchange = async () => {
+      const previous = entry.chromaticProfile?.octaveShift ?? 0;
+      const next = Number(octave.value);
+      if (next !== 0 && next !== 12) {
+        octave.value = String(previous);
+        return;
+      }
+      const previousOverrides = entry.fingeringOverrides;
+      entry.chromaticProfile ??= { model: "kb12-solo-assumed", key: "C" };
+      entry.chromaticProfile.octaveShift = next;
+      entry.fingeringOverrides = {};
+      try {
+        await updateEntry(entry);
+        status.textContent = "演奏八度已保存；指法已按新音高重新计算。";
+        draw();
+      } catch (e) {
+        entry.chromaticProfile.octaveShift = previous;
+        entry.fingeringOverrides = previousOverrides;
+        octave.value = String(previous);
+        error(e);
+      }
+    };
     dlg.addEventListener(
       "close",
       () => {

@@ -9,6 +9,8 @@
 .score-sequence { max-height:300px; overflow:auto; padding-left:30px; margin-bottom:0; }
 .score-sequence li { padding:4px 0; line-height:1.45; }
 .score-import details { margin-top:12px; }.score-import details > summary { font-size:.9rem; }
+.score-source-raw { margin:8px 0; }.score-source-raw > summary { cursor:pointer; color:#afc6bf; }
+.score-source-pre { max-height:240px; overflow:auto; white-space:pre; background:#0d1917; border:1px solid #29433d; border-radius:8px; padding:10px; color:#d5e6df; font: .88rem/1.5 ui-monospace,SFMono-Regular,monospace; }
 @media (max-width:680px) { .score-options { align-items:stretch; flex-direction:column; }.score-options label { justify-content:space-between; }.score-options select,.score-options input { min-width:0; } }
 .score-image { display:block; max-width:100%; max-height:28rem; margin:12px 0; object-fit:contain; border:1px solid #29433d; border-radius:8px; }
 .score-image[hidden] { display:none; }
