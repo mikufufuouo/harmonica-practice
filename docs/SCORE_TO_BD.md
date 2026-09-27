@@ -17,6 +17,12 @@
 
 确认界面应并列展示原图、可编辑识别文本或音符、实际音高和 BD 候选/建议路径。OCR 输出一律待审；只有识别器确实提供的证据才标数值置信度，不能将语法合法视为识别正确。用户逐项/逐行校对并确认无漏行后，才经 schema validator 保存。校对试听使用规范化音高，是识谱检查，不是演奏检测。
 
+## 校对与演奏呈现
+
+同一份 `NoteSequence` 和指法选择派生两种呈现，不在歌曲数据中复制另一份 BD 文本。校对模式保留来源、原音、演奏音高与每音指法下拉；演奏模式按原事件顺序从左到右排成多行，默认只显示 BD、时值、休止和小节/分句边界。导入时可在保存前预览，已保存的 12 孔谱默认打开演奏模式并可返回校对。
+
+行布局按音符或休止的时长分配视觉宽度，并在可容纳时保持一个小节完整；过宽小节只在事件边界拆行，避免孤音。明确的小节线优先；没有小节线但有拍号时，推测边界须标明。跨小节连音的续段保留时间槽并提示保持原指法，不能误作重新起音。`timeBase` 为 `unmetered` 时明示节奏未知，不将等距排版当作拍点。当前音频模块只有单音采样，没有整首播放、音高检测或自动推进，演奏视图不能暗示已有这些能力。
+
 ## 12 孔与 10 孔规则
 
 用户口琴为孔声 KB-12；[厂商页面](https://kongshengharmonica.com/products/kongsheng-kb-12-12-hole-chromatic-for-beginnera-and-professional-key-of-a-c-and-g-available)列有 C、G、A 调版本，且另有 [Orchestral tuning 版本](https://kongshengharmonica.com/products/kb-12-chromatic-harmonica-orchestral-tuning-tancy-signature)。型号本身不足以锁定调性和调音。标准 C Solo 的工作表每四孔重复吹 `C E G C`、吸 `D F A B`，按键各升半音；第 4/5 与 8/9 孔等有同音。将每个动作记为 `{pitch,hole,breath,slide}` 并保留候选。此表须在用户确认琴身调性/版本及音位后才称为其个人琴的已核对映射。可参考 [Hohner 12 孔标准 Solo 图](https://www.hohner-cshop.de/out/media/pdf/CX-12_en.pdf)，但它不能替代孔声的实际音位表。

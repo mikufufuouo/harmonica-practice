@@ -15,6 +15,7 @@ import type { Key } from "./lib/harmonica.ts";
 import { openImageScore } from "./image-score-viewer.ts";
 import { optimizeSoloPath, soloCandidates } from "./score/jianpu.ts";
 import { importScoreZip, exportScoreZip } from "./image-score-package.ts";
+import { buildPracticeProjection, mountPracticeScore, tiedEventIds } from "./practice-score.ts";
 import "./private-library.css";
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text?: string) => {
   const n = document.createElement(tag);
@@ -149,6 +150,45 @@ export function mountPrivateLibrary(container: HTMLElement): void {
     const notes = el("ol");
     notes.className = "score-sequence";
     const status = el("p");
+    const practiceHost = el("div");
+    practiceHost.className = "practice-host";
+    const reviewPanel = el("section");
+    reviewPanel.className = "bd-review-panel";
+    const octaveHint = el("p", "八度偏移只影响演奏指法，NoteSequence 中的来源音高不变。");
+    const presentation = el("div");
+    presentation.className = "bd-presentation-controls";
+    const reviewButton = el("button", "校对 / Edit") as HTMLButtonElement;
+    const practiceButton = el("button", "演奏 / Practice") as HTMLButtonElement;
+    presentation.append(reviewButton, practiceButton);
+    let mode: "practice" | "review" = chromatic ? "practice" : "review";
+    let unmountPractice: (() => void) | null = null;
+    const showMode = () => {
+      const isPractice = mode === "practice" && chromatic;
+      reviewPanel.hidden = isPractice;
+      practiceHost.hidden = !isPractice;
+      reviewButton.setAttribute("aria-pressed", String(!isPractice));
+      practiceButton.setAttribute("aria-pressed", String(isPractice));
+      unmountPractice?.();
+      unmountPractice = null;
+      if (isPractice) {
+        const projection = buildPracticeProjection(entry.sequence, {
+          octaveShift: Number(octave.value) as 0 | 12,
+          overrides: entry.fingeringOverrides,
+        });
+        unmountPractice = mountPracticeScore(practiceHost, entry.sequence, projection);
+        if (projection.tieOverrideConflicts.length)
+          status.textContent = "连音组内曾保存不同指法；演奏谱按最早有效段显示。请在校对模式选一次指法以统一整组。";
+      } else if (chromatic) {
+        const projection = buildPracticeProjection(entry.sequence, {
+          octaveShift: Number(octave.value) as 0 | 12,
+          overrides: entry.fingeringOverrides,
+        });
+        if (projection.tieOverrideConflicts.length)
+          status.textContent = "连音组内曾保存不同指法；校对列表暂按最早有效段统一显示，选择任一段即可保存整组指法。";
+      }
+    };
+    reviewButton.onclick = () => { mode = "review"; showMode(); };
+    practiceButton.onclick = () => { mode = "practice"; showMode(); };
     const draw = () => {
       if (!chromatic) {
         notes.replaceChildren(
@@ -182,6 +222,10 @@ export function mountPrivateLibrary(container: HTMLElement): void {
         "C",
         pins,
       );
+      const projection = buildPracticeProjection(entry.sequence, {
+        octaveShift: Number(octave.value) as 0 | 12,
+        overrides: entry.fingeringOverrides,
+      });
       let ni = 0;
       notes.replaceChildren(
         ...entry.sequence.events.map((event) => {
@@ -206,15 +250,16 @@ export function mountPrivateLibrary(container: HTMLElement): void {
           candidates.forEach((c) =>
             select.append(new Option(c.label, c.label)),
           );
-          select.value = valid
-            ? saved!.label
-            : (path[i]?.label ?? candidates[0]!.label);
+          select.value = projection.items.find((item) => item.eventId === event.id)?.label?.replace("#", "推键") ?? (valid ? saved!.label : path[i]?.label ?? candidates[0]!.label);
           select.onchange = async () => {
             entry.fingeringOverrides ??= {};
-            entry.fingeringOverrides[event.id] = {
-              midi: targetMidi,
-              label: select.value,
-            };
+            for (const tiedId of tiedEventIds(entry.sequence, event.id)) {
+              const tied = entry.sequence.events.find((item) => item.id === tiedId);
+              if (tied?.kind === "note") entry.fingeringOverrides[tied.id] = {
+                midi: tied.pitch.midi + Number(octave.value),
+                label: select.value,
+              };
+            }
             try {
               await updateEntry(entry);
               status.textContent =
@@ -230,6 +275,7 @@ export function mountPrivateLibrary(container: HTMLElement): void {
           return li;
         }),
       );
+      if (mode === "practice") showMode();
     };
     key.onchange = draw;
     draw();
@@ -262,24 +308,20 @@ export function mountPrivateLibrary(container: HTMLElement): void {
         sourceInfo.append(raw);
       }
     }
+    reviewPanel.append(sourceInfo, notes, status, el("p", entry.sequence.lyrics.map((l) => l.text).join(" / ")));
     dlg.append(
       close,
       el("h2", entry.title),
-      el(
-        "p",
-        chromatic
-          ? "BD 指法 · KB-12 C 调标准 Solo 暂定表；请以实物音位核对。Orchestral 暂不支持。"
-          : "BD 指法 · 10 孔 Richter 自然音",
-      ),
       ...(chromatic ? [
-        el("p", "八度偏移只影响演奏指法，NoteSequence 中的来源音高不变。"),
-        octave,
+        presentation,
+        practiceHost,
       ] : [key]),
-      sourceInfo,
-      notes,
-      status,
-      el("p", entry.sequence.lyrics.map((l) => l.text).join(" / ")),
+      reviewPanel,
     );
+    if (chromatic) {
+      reviewPanel.prepend(octave, octaveHint, el("p", "BD 指法 · KB-12 C 调标准 Solo 暂定表；请以实物音位核对。Orchestral 暂不支持。"));
+    }
+    showMode();
     octave.onchange = async () => {
       const previous = entry.chromaticProfile?.octaveShift ?? 0;
       const next = Number(octave.value);
@@ -305,6 +347,7 @@ export function mountPrivateLibrary(container: HTMLElement): void {
     dlg.addEventListener(
       "close",
       () => {
+        unmountPractice?.();
         dlg.remove();
         focus?.focus({ preventScroll: true });
       },

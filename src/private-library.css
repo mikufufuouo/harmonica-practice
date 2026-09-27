@@ -57,3 +57,111 @@
 .private-bd-dialog::backdrop {
   background: #000b;
 }
+.bd-presentation-controls,
+.practice-preview-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+.bd-presentation-controls button[aria-pressed="true"] {
+  border-color: #6ed9b6;
+  background: #245b4e;
+}
+.bd-review-panel[hidden],
+.practice-host[hidden],
+.practice-preview-controls[hidden],
+.practice-preview-controls button[hidden],
+.chromatic-review-area[hidden] {
+  display: none !important;
+}
+.practice-host {
+  min-width: 0;
+  margin: 0.5rem 0 1rem;
+}
+.practice-score-meta {
+  color: #a9c8be;
+  font-size: 0.82rem;
+  margin: 0 0 0.8rem;
+}
+.practice-score-rows {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+.practice-score-row {
+  display: grid;
+  align-items: end;
+  gap: 8px;
+  width: 100%;
+  margin: 0.5rem 0 0.85rem;
+}
+.practice-score-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  min-height: 3.5rem;
+  padding: 0.3rem 0.1rem 0.15rem;
+  border-bottom: 2px solid #34584e;
+  text-align: center;
+}
+.practice-score-duration-line {
+  content: "";
+  display: block;
+  max-width: 100%;
+  height: 0;
+  margin-top: 0.35rem;
+  border-bottom: 2px solid #54776c;
+  opacity: 0.7;
+}
+.practice-score-cell.has-barline {
+  border-left: 2px solid #7ba99a;
+  padding-left: 4px;
+}
+.practice-score-glyph {
+  display: block;
+  max-width: 100%;
+  color: #f4fff9;
+  font-size: clamp(0.78rem, 2.8vw, 1.05rem);
+  font-weight: 750;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.practice-score-cell.is-rest .practice-score-glyph {
+  color: #a9c8be;
+  font-size: 0.9rem;
+}
+.practice-score-cell.is-tie-continuation {
+  opacity: 0.72;
+}
+.practice-score-cell .tie-glyph {
+  font-size: clamp(0.68rem, 2.5vw, 0.9rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+.practice-score-duration {
+  display: block;
+  max-width: 100%;
+  margin-top: 0.2rem;
+  color: #8eb6a8;
+  font-size: 0.68rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+.practice-preview-controls {
+  margin: 0.65rem 0;
+}
+@media (max-width: 480px) {
+  .private-bd-dialog {
+    width: 96vw;
+    padding: 0.8rem;
+  }
+  .practice-score-row {
+    gap: 4px;
+  }
+  .practice-score-cell.has-barline {
+    padding-left: 2px;
+  }
+}

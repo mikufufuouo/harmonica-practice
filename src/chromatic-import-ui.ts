@@ -5,6 +5,7 @@ import {
   soloCandidates,
 } from "./score/jianpu.ts";
 import { saveChromaticSequence } from "./score-library.ts";
+import { buildPracticeProjection, mountPracticeScore, tiedEventIds } from "./practice-score.ts";
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text?: string) => {
   const n = document.createElement(tag);
@@ -43,23 +44,74 @@ export function mountChromaticImport(root: HTMLElement): void {
     label.append(input);
     return label;
   };
+  const previewControls = el("div");
+  previewControls.className = "practice-preview-controls";
+  const previewButton = el("button", "预览吹奏谱") as HTMLButtonElement;
+  const backButton = el("button", "返回校对") as HTMLButtonElement;
+  previewControls.append(previewButton, backButton);
+  previewControls.hidden = true;
+  backButton.hidden = true;
+  const practiceHost = el("div");
+  practiceHost.className = "practice-host";
+  practiceHost.hidden = true;
+  const reviewArea = el("div");
+  reviewArea.className = "chromatic-review-area";
+  const ackLabel = labelBox("我确认琴为 C 调 KB-12 标准 Solo，且核对 1B=C4、1D=D4", ack);
+  const octaveLabel = labelBox("演奏时移八度（原始音符音高保持不变）", octave);
+  reviewArea.append(ackLabel, octaveLabel, rows, labelBox("我已核对来源、每个音符及整段指法", review), save);
   section.append(
     hint,
     pick,
-    labelBox("我确认琴为 C 调 KB-12 标准 Solo，且核对 1B=C4、1D=D4", ack),
-    labelBox("演奏时移八度（原始音符音高保持不变）", octave),
     source,
-    rows,
-    labelBox("我已核对来源、每个音符及整段指法", review),
-    save,
+    previewControls,
+    practiceHost,
+    reviewArea,
     status,
   );
   root.append(section);
   let sequence: NoteSequence | null = null,
     overrides: Record<string, { midi: number; label: string }> = {},
     pins: Record<number, string> = {},
-    saving = false;
+    saving = false,
+    practicePreview = false,
+    unmountPractice: (() => void) | null = null;
+  const closePreview = () => {
+    practicePreview = false;
+    unmountPractice?.();
+    unmountPractice = null;
+    practiceHost.hidden = true;
+    reviewArea.hidden = false;
+    hint.hidden = pick.hidden = source.hidden = false;
+    status.hidden = false;
+    previewButton.hidden = false;
+    backButton.hidden = true;
+  };
+  const drawPracticePreview = () => {
+    unmountPractice?.();
+    unmountPractice = null;
+    if (!sequence || !practicePreview) return;
+    const projection = buildPracticeProjection(sequence, {
+      octaveShift: Number(octave.value) as 0 | 12,
+      overrides,
+      pins,
+    });
+    unmountPractice = mountPracticeScore(practiceHost, sequence, projection);
+    if (projection.tieOverrideConflicts.length)
+      status.textContent = "连音组内存在不同指法选择；预览按最早有效段显示，请返回校对统一指法。";
+  };
+  previewButton.onclick = () => {
+    practicePreview = true;
+    practiceHost.hidden = false;
+    reviewArea.hidden = true;
+    hint.hidden = pick.hidden = source.hidden = true;
+    status.hidden = true;
+    previewButton.hidden = true;
+    backButton.hidden = false;
+    drawPracticePreview();
+  };
+  backButton.onclick = closePreview;
   const invalidate = () => {
+    closePreview();
     sequence = null;
     overrides = {};
     pins = {};
@@ -67,10 +119,12 @@ export function mountChromaticImport(root: HTMLElement): void {
     rows.replaceChildren();
     source.replaceChildren();
     save.disabled = true;
+    previewControls.hidden = true;
   };
   const render = () => {
     rows.replaceChildren();
     if (!sequence) return;
+    previewControls.hidden = false;
     const notes = sequence.events.filter((e) => e.kind === "note");
     const octaveShift = Number(octave.value) as 0 | 12;
     const path = optimizeSoloPath(
@@ -78,6 +132,7 @@ export function mountChromaticImport(root: HTMLElement): void {
       "C",
       pins,
     );
+    const projection = buildPracticeProjection(sequence, { octaveShift, overrides, pins });
     let ni = 0;
     let unplayable = false;
     sequence.events.forEach((event) => {
@@ -118,9 +173,15 @@ export function mountChromaticImport(root: HTMLElement): void {
           return;
         }
         if (midi !== event.pitch.midi) {
-          event.pitch.midi = midi;
-          event.pitch.spelling = undefined;
-          event.confidence = undefined;
+          const linkedIds = tiedEventIds(sequence!, event.id);
+          for (const linkedId of linkedIds) {
+            const linkedEvent = sequence!.events.find((candidate) => candidate.id === linkedId);
+            if (linkedEvent?.kind === "note") {
+              linkedEvent.pitch.midi = midi;
+              linkedEvent.pitch.spelling = undefined;
+              linkedEvent.confidence = undefined;
+            }
+          }
           sequence!.annotations = sequence!.annotations.filter(
             (a) => a.kind !== "text" || a.beforeEventId !== event.id,
           );
@@ -129,8 +190,12 @@ export function mountChromaticImport(root: HTMLElement): void {
             beforeEventId: event.id,
             text: "人工修正音高",
           });
-          delete overrides[event.id];
-          delete pins[i];
+          for (const linkedId of linkedIds) {
+            delete overrides[linkedId];
+            const linkedIndex = sequence!.events.findIndex((candidate) => candidate.id === linkedId);
+            const linkedNoteIndex = sequence!.events.slice(0, linkedIndex + 1).filter((candidate) => candidate.kind === "note").length - 1;
+            delete pins[linkedNoteIndex];
+          }
           review.checked = false;
           render();
         }
@@ -141,12 +206,20 @@ export function mountChromaticImport(root: HTMLElement): void {
       const select = el("select");
       select.setAttribute("aria-label", `音符 ${i + 1} 指法`);
       choices.forEach((c) => select.append(new Option(c.label, c.label)));
-      const selected = path[i]?.label;
+      const selected = projection.items.find((item) => item.eventId === event.id)?.label?.replace("#", "推键") ?? path[i]?.label;
       if (selected) select.value = selected;
       select.onchange = () => {
-        pins[i] = select.value;
+        const groupIds = tiedEventIds(sequence!, event.id);
+        for (const id of groupIds) {
+          const tiedIndex = sequence!.events.findIndex((candidate) => candidate.id === id);
+          const noteIndex = sequence!.events.slice(0, tiedIndex + 1).filter((candidate) => candidate.kind === "note").length - 1;
+          pins[noteIndex] = select.value;
+        }
         const c = choices.find((c) => c.label === select.value);
-        if (c) overrides[event.id] = { midi: targetMidi, label: c.label };
+        if (c) for (const id of groupIds) {
+          const tied = sequence!.events.find((candidate) => candidate.id === id);
+          if (tied?.kind === "note") overrides[id] = { midi: tied.pitch.midi + octaveShift, label: c.label };
+        }
         review.checked = false;
         render();
       };
@@ -172,6 +245,7 @@ export function mountChromaticImport(root: HTMLElement): void {
       rows.append(li);
     });
     save.disabled = !(review.checked && ack.checked && !unplayable);
+    if (practicePreview) drawPracticePreview();
   };
   pick.onchange = async () => {
     invalidate();
