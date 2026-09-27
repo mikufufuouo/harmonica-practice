@@ -74,6 +74,8 @@ export type NoteSequence = {
       | "audio"
       | "image"
       | "native";
+    description?: string;
+    url?: string;
     rawText?: string;
     instrument?: { key: Key; layout: "richter-major" };
   }[];

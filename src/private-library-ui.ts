@@ -5,10 +5,15 @@ import {
   updateImageSong,
   type ImageSong,
 } from "./image-score-library.ts";
-import { listEntries, type LibraryEntry } from "./score-library.ts";
+import {
+  listEntries,
+  updateEntry,
+  type LibraryEntry,
+} from "./score-library.ts";
 import { generateFingeringPlan } from "./score/index.ts";
 import type { Key } from "./lib/harmonica.ts";
 import { openImageScore } from "./image-score-viewer.ts";
+import { optimizeSoloPath, soloCandidates } from "./score/jianpu.ts";
 import { importScoreZip, exportScoreZip } from "./image-score-package.ts";
 import "./private-library.css";
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text?: string) => {
@@ -127,33 +132,131 @@ export function mountPrivateLibrary(container: HTMLElement): void {
     dlg.className = "private-bd-dialog";
     const close = el("button", "返回曲库");
     close.onclick = () => dlg.close();
+    const chromatic = entry.chromaticProfile?.model === "kb12-solo-assumed";
     const key = el("select");
     key.setAttribute("aria-label", "当前琴调");
-    ["C", "G", "A", "D", "F", "Bb"].forEach((k) =>
+    (chromatic ? ["C"] : ["C", "G", "A", "D", "F", "Bb"]).forEach((k) =>
       key.append(new Option(k, k)),
     );
+    if (chromatic) key.value = "C";
     const notes = el("ol");
     notes.className = "score-sequence";
-    const draw = () =>
-      notes.replaceChildren(
-        ...generateFingeringPlan(entry.sequence, key.value as Key).items.map(
-          (n) =>
-            el(
-              "li",
-              n.candidates.map((c) => c.label).join(" / ") ||
-                n.reason ||
-                "休止",
-            ),
-        ),
+    const status = el("p");
+    const draw = () => {
+      if (!chromatic) {
+        notes.replaceChildren(
+          ...generateFingeringPlan(entry.sequence, key.value as Key).items.map(
+            (n) =>
+              el(
+                "li",
+                n.candidates.map((c) => c.label).join(" / ") ||
+                  n.reason ||
+                  "休止",
+              ),
+          ),
+        );
+        return;
+      }
+      const noteEvents = entry.sequence.events.filter((e) => e.kind === "note");
+      const pins: Record<number, string> = {};
+      noteEvents.forEach((event, index) => {
+        const saved = entry.fingeringOverrides?.[event.id];
+        if (
+          saved?.midi === event.pitch.midi &&
+          soloCandidates(event.pitch.midi, "C").some(
+            (c) => c.label === saved.label,
+          )
+        )
+          pins[index] = saved.label;
+      });
+      const path = optimizeSoloPath(
+        noteEvents.map((e) => ({ midi: e.pitch.midi })),
+        "C",
+        pins,
       );
+      let ni = 0;
+      notes.replaceChildren(
+        ...entry.sequence.events.map((event) => {
+          if (event.kind === "rest")
+            return el("li", `${event.order + 1}. 休止`);
+          const i = ni++,
+            candidates = soloCandidates(event.pitch.midi, "C"),
+            saved = entry.fingeringOverrides?.[event.id];
+          const valid =
+            saved?.midi === event.pitch.midi &&
+            candidates.some((c) => c.label === saved.label);
+          const li = el(
+            "li",
+            `${event.order + 1}. ${event.pitch.spelling ?? pitchName(event.pitch.midi)} · MIDI ${event.pitch.midi} → `,
+          );
+          if (!candidates.length) {
+            li.append(el("strong", "不可奏"));
+            return li;
+          }
+          const select = el("select");
+          candidates.forEach((c) =>
+            select.append(new Option(c.label, c.label)),
+          );
+          select.value = valid
+            ? saved!.label
+            : (path[i]?.label ?? candidates[0]!.label);
+          select.onchange = async () => {
+            entry.fingeringOverrides ??= {};
+            entry.fingeringOverrides[event.id] = {
+              midi: event.pitch.midi,
+              label: select.value,
+            };
+            try {
+              await updateEntry(entry);
+              status.textContent =
+                "指法修改已保存在本机。邻近音的默认指法已重新优化。";
+              draw();
+            } catch (e) {
+              status.textContent = `指法修改未能保存：${e instanceof Error ? e.message : "存储错误"}`;
+            }
+          };
+          li.append(select);
+          if (saved && !valid)
+            li.append(el("small", "已忽略与当前音高不匹配的旧指法覆盖"));
+          return li;
+        }),
+      );
+    };
     key.onchange = draw;
     draw();
+    const sourceInfo = el("section");
+    for (const source of entry.sequence.sources) {
+      const p = el(
+        "p",
+        `${source.format}${source.description ? ` · ${source.description}` : ""}${source.rawText ? ` · ${source.rawText}` : ""}`,
+      );
+      if (source.url) {
+        try {
+          const url = new URL(source.url);
+          if (["http:", "https:"].includes(url.protocol)) {
+            const a = el("a", url.href);
+            a.href = url.href;
+            a.target = "_blank";
+            a.rel = "noopener noreferrer";
+            p.append(a);
+          }
+        } catch {}
+      }
+      sourceInfo.append(p);
+    }
     dlg.append(
       close,
       el("h2", entry.title),
-      el("p", "BD 指法 · 10 孔 Richter 自然音"),
-      key,
+      el(
+        "p",
+        chromatic
+          ? "BD 指法 · KB-12 C 调标准 Solo 暂定表；请以实物音位核对。Orchestral 暂不支持。"
+          : "BD 指法 · 10 孔 Richter 自然音",
+      ),
+      ...(chromatic ? [] : [key]),
+      sourceInfo,
       notes,
+      status,
       el("p", entry.sequence.lyrics.map((l) => l.text).join(" / ")),
     );
     dlg.addEventListener(
@@ -335,4 +438,22 @@ export function mountPrivateLibrary(container: HTMLElement): void {
     });
   document.addEventListener("score-library-changed", () => void refresh());
   void refresh();
+}
+
+function pitchName(midi: number): string {
+  const names = [
+    "C",
+    "C♯",
+    "D",
+    "D♯",
+    "E",
+    "F",
+    "F♯",
+    "G",
+    "G♯",
+    "A",
+    "A♯",
+    "B",
+  ];
+  return `${names[midi % 12]}${Math.floor(midi / 12) - 1}`;
 }

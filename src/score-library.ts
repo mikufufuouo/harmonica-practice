@@ -4,6 +4,7 @@ import {
   type NoteSequence,
 } from "./score/index.ts";
 import type { Key } from "./lib/harmonica.ts";
+import { melodyEligibility, soloCandidates } from "./score/jianpu.ts";
 
 export type DraftLine = {
   id: string;
@@ -35,6 +36,8 @@ export type LibraryEntry = {
   draftId?: string;
   reviewSummary?: string;
   sequence: NoteSequence;
+  chromaticProfile?: { model: "kb12-solo-assumed"; key: "C" };
+  fingeringOverrides?: Record<string, { midi: number; label: string }>;
 };
 
 const DB = "harmonica-score-library",
@@ -151,6 +154,56 @@ export async function getImage(assetId: string): Promise<Blob | null> {
   }
 }
 export const listEntries = () => all<LibraryEntry>("entries");
+export async function updateEntry(entry: LibraryEntry): Promise<void> {
+  if (!validateNoteSequence(entry.sequence).valid || !validChromaticFields(entry))
+    throw new Error("歌曲或指法数据无效，未保存更改。");
+  await put("entries", entry);
+}
+export async function saveChromaticSequence(
+  sequence: NoteSequence,
+  profile: NonNullable<LibraryEntry["chromaticProfile"]>,
+  overrides: NonNullable<LibraryEntry["fingeringOverrides"]> = {},
+): Promise<LibraryEntry> {
+  const checked = validateNoteSequence(sequence);
+  if (!checked.valid) throw new Error(checked.errors.join(" "));
+  const melodyErrors = melodyEligibility(sequence);
+  if (melodyErrors.length) throw new Error(melodyErrors.join(" "));
+  if (
+    sequence.events.some(
+      (event) =>
+        event.kind === "note" && !soloCandidates(event.pitch.midi, "C").length,
+    )
+  )
+    throw new Error("有音符超出暂定 C 调 Solo 的可奏范围。");
+  if (!profile || profile.model !== "kb12-solo-assumed" || profile.key !== "C")
+    throw new Error("此版本仅支持暂定的 KB-12 C 标准 Solo 映射。");
+  for (const [eventId, override] of Object.entries(overrides)) {
+    const event = sequence.events.find((item) => item.id === eventId);
+    if (
+      !event ||
+      event.kind !== "note" ||
+      !override ||
+      override.midi !== event.pitch.midi ||
+      !soloCandidates(event.pitch.midi, "C").some(
+        (c) => c.label === override.label,
+      )
+    )
+      throw new Error(`无效指法覆盖：${eventId}`);
+  }
+  const entry: LibraryEntry = {
+    version: 1,
+    id: newId(),
+    title: sequence.title,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    assetId: "",
+    sequence,
+    chromaticProfile: profile,
+    fingeringOverrides: overrides,
+  };
+  await put("entries", entry);
+  return entry;
+}
 export async function deleteDraft(id: string): Promise<void> {
   await deleteReferenced("drafts", id);
 }
@@ -332,10 +385,11 @@ export function validateLibraryBackup(value: unknown): {
       typeof item.title !== "string" ||
       typeof item.assetId !== "string" ||
       !dates ||
-      !checked.valid
+      !checked.valid ||
+      !validChromaticFields(item)
     )
       errors.push(
-        `无效歌曲：${typeof item.title === "string" ? item.title : "未命名"}（${checked.errors.join("；")}）`,
+        `无效歌曲：${typeof item.title === "string" ? item.title : "未命名"}（${checked.errors.join("；") || "元数据或指法无效"}）`,
       );
     else
       entries.push({
@@ -349,7 +403,12 @@ export function validateLibraryBackup(value: unknown): {
 export async function importEntries(entries: LibraryEntry[]): Promise<void> {
   for (const entry of entries) {
     const checked = validateNoteSequence(entry?.sequence);
-    if (!entry || entry.version !== 1 || !checked.valid)
+    if (
+      !entry ||
+      entry.version !== 1 ||
+      !checked.valid ||
+      !validChromaticFields(entry)
+    )
       throw new Error(`无效歌曲：${entry?.title ?? "未命名"}`);
   }
   if (!entries.length) return;
@@ -374,4 +433,48 @@ export async function importEntries(entries: LibraryEntry[]): Promise<void> {
   } finally {
     db.close();
   }
+}
+
+function validChromaticFields(entry: Partial<LibraryEntry>): boolean {
+  if (entry.fingeringOverrides !== undefined && entry.chromaticProfile === undefined)
+    return false;
+  if (
+    entry.chromaticProfile !== undefined &&
+    (!entry.chromaticProfile ||
+      entry.chromaticProfile.model !== "kb12-solo-assumed" ||
+      entry.chromaticProfile.key !== "C")
+  )
+    return false;
+  if (entry.chromaticProfile !== undefined) {
+    if (!entry.sequence || melodyEligibility(entry.sequence).length) return false;
+    if (
+      entry.sequence.events.some(
+        (event) =>
+          event.kind === "note" && !soloCandidates(event.pitch.midi, "C").length,
+      )
+    )
+      return false;
+  }
+  if (entry.fingeringOverrides === undefined) return true;
+  if (
+    !entry.fingeringOverrides ||
+    typeof entry.fingeringOverrides !== "object" ||
+    Array.isArray(entry.fingeringOverrides) ||
+    !entry.sequence
+  )
+    return false;
+  for (const [id, override] of Object.entries(entry.fingeringOverrides)) {
+    const event = entry.sequence.events.find((item) => item.id === id);
+    if (
+      !event ||
+      event.kind !== "note" ||
+      !override ||
+      override.midi !== event.pitch.midi ||
+      !soloCandidates(event.pitch.midi, "C").some(
+        (candidate) => candidate.label === override.label,
+      )
+    )
+      return false;
+  }
+  return true;
 }

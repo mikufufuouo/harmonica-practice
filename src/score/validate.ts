@@ -40,6 +40,8 @@ function validate(value: unknown): { valid: boolean; errors: string[] } {
     if (!isObject(source) || !isNonEmptyString(source.id) || !FORMATS.has(source.format as string) || sourceIds.has(source.id)) { fail("invalid source"); continue; }
     sourceIds.add(source.id);
     if (source.rawText !== undefined && typeof source.rawText !== "string") fail("invalid source rawText");
+    if (source.description !== undefined && typeof source.description !== "string") fail("invalid source description");
+    if (source.url !== undefined) { if (typeof source.url !== "string") fail("invalid source url"); else try { const url = new URL(source.url); if (url.protocol !== "https:" && url.protocol !== "http:") fail("invalid source url"); } catch { fail("invalid source url"); } }
     if (source.instrument !== undefined && (!isObject(source.instrument) || !KEYS.has(source.instrument.key as string) || source.instrument.layout !== "richter-major")) fail("invalid source instrument");
   }
   const events = value.events, eventIds = new Set<string>(), noteIds = new Set<string>();
